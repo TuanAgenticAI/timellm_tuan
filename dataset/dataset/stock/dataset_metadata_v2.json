@@ -1,0 +1,23 @@
+{
+  "version": "v2",
+  "features": [
+    "RSI",
+    "MACD",
+    "BB_Position",
+    "Volume_Norm",
+    "ROC",
+    "momentum_1d",
+    "momentum_3d",
+    "momentum_5d",
+    "momentum_10d",
+    "MA_Crossover",
+    "Trend_Strength",
+    "Price_Position",
+    "Volatility"
+  ],
+  "target": "Adj Close",
+  "total_samples": 4147,
+  "up_ratio": 0.4468290330359296,
+  "down_ratio": 0.5531709669640704,
+  "description": "Improved dataset with momentum and trend features for better directional prediction"
+}
