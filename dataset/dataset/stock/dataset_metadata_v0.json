@@ -1,0 +1,14 @@
+{
+  "version": "v0_baseline",
+  "features": [
+    "RSI",
+    "MACD",
+    "BB_Position",
+    "Volume_Norm",
+    "ROC"
+  ],
+  "target": "Adj Close",
+  "total_samples": 4149,
+  "date_range": "2009-07-27 00:00:00 to 2026-03-16 00:00:00",
+  "description": "Baseline dataset with basic indicators only (no momentum features)"
+}
