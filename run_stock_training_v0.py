@@ -236,10 +236,6 @@ def train_model_v0(args):
         for i, batch in tqdm(enumerate(train_loader), total=len(train_loader), desc=f"Epoch {epoch+1}"):
             batch_x, batch_y, batch_x_mark, batch_y_mark = batch[:4]
 
-            # DEBUG: verify static prompt path (first batch, first epoch only)
-            if i == 0 and epoch == 0:
-                accelerator.print(f"\n[DEBUG V0] len(batch)={len(batch)}, using STATIC prompt (no dynamic_prompts)")
-
             iter_count += 1
             model_optim.zero_grad()
             

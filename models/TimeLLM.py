@@ -425,24 +425,25 @@ class Model(nn.Module):
 
             prompt.append(prompt_)
 
-        # DEBUG: print first prompt to verify static vs dynamic (only once)
-        if not hasattr(self, '_debug_printed'):
-            self._debug_printed = True
-            is_dynamic = dynamic_prompts is not None
-            print(f"\n[DEBUG MODEL] dynamic_prompts={'YES' if is_dynamic else 'NO (static)'}")
-            print(f"[DEBUG MODEL] prompt[0] (first 200 chars): {prompt[0][:200]}")
-            print(f"[DEBUG MODEL] total prompts in batch: {len(prompt)}")
-
         x_enc = x_enc.reshape(B, N, T).permute(0, 2, 1).contiguous()
 
-        prompt = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True, max_length=2048).input_ids
-        prompt_embeddings = self.llm_model.get_input_embeddings()(prompt.to(x_enc.device))  # (batch, prompt_token, dim)
+        # Robust tokenization with fallback for batch encoding issues
+        prompt_ids = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True, max_length=2048).input_ids
 
-        # DEBUG: print prompt token count (only once)
-        if hasattr(self, '_debug_printed') and not hasattr(self, '_debug_tokens_printed'):
-            self._debug_tokens_printed = True
-            print(f"[DEBUG MODEL] prompt_embeddings shape: {prompt_embeddings.shape}")
-            print(f"[DEBUG MODEL] prompt tokens per sample: {prompt.shape[1]}")
+        # Fallback: if batch tokenization returns 0 tokens, encode individually
+        if prompt_ids.shape[1] == 0:
+            import torch as _torch
+            encoded_list = [self.tokenizer.encode(p, max_length=2048, truncation=True) for p in prompt]
+            max_len = max(len(ids) for ids in encoded_list)
+            pad_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else 0
+            padded = [ids + [pad_id] * (max_len - len(ids)) for ids in encoded_list]
+            prompt_ids = _torch.tensor(padded, dtype=_torch.long)
+            if not hasattr(self, '_tokenizer_fallback_warned'):
+                self._tokenizer_fallback_warned = True
+                print(f"[TOKENIZER FIX] Batch tokenization returned 0 tokens, using encode() fallback")
+                print(f"[TOKENIZER FIX] prompt_ids shape after fix: {prompt_ids.shape}")
+
+        prompt_embeddings = self.llm_model.get_input_embeddings()(prompt_ids.to(x_enc.device))
 
         source_embeddings = self.mapping_layer(self.word_embeddings.permute(1, 0)).permute(1, 0)
 
