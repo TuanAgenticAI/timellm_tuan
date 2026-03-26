@@ -425,10 +425,24 @@ class Model(nn.Module):
 
             prompt.append(prompt_)
 
+        # DEBUG: print first prompt to verify static vs dynamic (only once)
+        if not hasattr(self, '_debug_printed'):
+            self._debug_printed = True
+            is_dynamic = dynamic_prompts is not None
+            print(f"\n[DEBUG MODEL] dynamic_prompts={'YES' if is_dynamic else 'NO (static)'}")
+            print(f"[DEBUG MODEL] prompt[0] (first 200 chars): {prompt[0][:200]}")
+            print(f"[DEBUG MODEL] total prompts in batch: {len(prompt)}")
+
         x_enc = x_enc.reshape(B, N, T).permute(0, 2, 1).contiguous()
 
         prompt = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True, max_length=2048).input_ids
         prompt_embeddings = self.llm_model.get_input_embeddings()(prompt.to(x_enc.device))  # (batch, prompt_token, dim)
+
+        # DEBUG: print prompt token count (only once)
+        if hasattr(self, '_debug_printed') and not hasattr(self, '_debug_tokens_printed'):
+            self._debug_tokens_printed = True
+            print(f"[DEBUG MODEL] prompt_embeddings shape: {prompt_embeddings.shape}")
+            print(f"[DEBUG MODEL] prompt tokens per sample: {prompt.shape[1]}")
 
         source_embeddings = self.mapping_layer(self.word_embeddings.permute(1, 0)).permute(1, 0)
 

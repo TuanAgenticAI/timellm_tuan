@@ -12,7 +12,7 @@ accelerate launch --mixed_precision bf16 --num_processes 1 --main_process_port 2
   --task_name long_term_forecast \
   --is_training 1 \
   --root_path ./dataset/dataset/stock/ \
-  --data_path vcb_stock_indicators.csv \
+  --data_path vcb_stock_indicators_v2.csv \
   --model_id VCB_stock_baseline \
   --model TimeLLM \
   --data Stock \
@@ -22,8 +22,8 @@ accelerate launch --mixed_precision bf16 --num_processes 1 --main_process_port 2
   --seq_len 60 \
   --label_len 30 \
   --pred_len 1 \
-  --enc_in 6 \
-  --dec_in 6 \
+  --enc_in 13 \
+  --dec_in 13 \
   --c_out 1 \
   --d_model 32 \
   --d_ff 128 \
@@ -32,7 +32,7 @@ accelerate launch --mixed_precision bf16 --num_processes 1 --main_process_port 2
   --llm_model GPT2 \
   --llm_dim 768 \
   --llm_layers 6 \
-  --train_epochs 30 \
+  --train_epochs 10 \
   --patience 10 \
   --patch_len 8 \
   --stride 4 \

@@ -305,7 +305,15 @@ def train_model_v1(args):
             else:
                 batch_x, batch_y, batch_x_mark, batch_y_mark = batch
                 prompts = None
-            
+
+            # DEBUG: verify dynamic prompts are loaded (first batch, first epoch only)
+            if i == 0 and epoch == 0:
+                accelerator.print(f"\n[DEBUG V1] len(batch)={len(batch)}, prompts is None: {prompts is None}")
+                if prompts is not None:
+                    accelerator.print(f"[DEBUG V1] num_prompts={len(prompts)}, first_prompt={prompts[0][:150]}...")
+                else:
+                    accelerator.print("[DEBUG V1] WARNING: prompts is None! Using static prompt fallback!")
+
             iter_count += 1
             model_optim.zero_grad()
             

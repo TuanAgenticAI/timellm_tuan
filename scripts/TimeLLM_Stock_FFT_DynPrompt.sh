@@ -9,8 +9,7 @@ echo "Running with patching_mode: $patching_mode"
 
 accelerate launch --mixed_precision bf16 --num_processes 1 --main_process_port 2026 run_stock_fft_dynprompt.py \
   --use_dynamic_prompt \
-  --prompt_data_path prompts_v2_ohlcv_short_term.json \
-  --entropy_weight 0.05 \
+  --prompt_data_path prompts_v2_short_term.json \
   --patching_mode $patching_mode \
   --task_name long_term_forecast \
   --is_training 1 \

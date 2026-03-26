@@ -15,6 +15,7 @@ echo "============================================"
 
 accelerate launch --mixed_precision bf16 --num_processes 1 --main_process_port 2027 run_stock_all_features.py \
   --use_dynamic_prompt \
+  --prompt_data_path prompts_v2_short_term.json \
   --patching_mode frequency_aware \
   --direction_weight 0.3 \
   --use_soft_direction \
@@ -41,7 +42,7 @@ accelerate launch --mixed_precision bf16 --num_processes 1 --main_process_port 2
   --llm_model GPT2 \
   --llm_dim 768 \
   --llm_layers 6 \
-  --train_epochs 30 \
+  --train_epochs 10 \
   --patience 10 \
   --patch_len 8 \
   --stride 4 \

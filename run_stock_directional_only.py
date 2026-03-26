@@ -258,7 +258,7 @@ def parse_args():
     # Data config
     parser.add_argument('--data', type=str, default='Stock')
     parser.add_argument('--root_path', type=str, default='./dataset/dataset/stock/')
-    parser.add_argument('--data_path', type=str, default='vcb_stock_indicators.csv')
+    parser.add_argument('--data_path', type=str, default='vcb_stock_indicators_v2.csv')
     parser.add_argument('--features', type=str, default='MS')
     parser.add_argument('--target', type=str, default='Adj Close')
     parser.add_argument('--freq', type=str, default='d')
@@ -273,8 +273,8 @@ def parse_args():
     # Model config - use SINGLE patching (original, no FFT)
     parser.add_argument('--patching_mode', type=str, default='single',
                         help='Use single patching (original) to isolate directional loss effect')
-    parser.add_argument('--enc_in', type=int, default=6)
-    parser.add_argument('--dec_in', type=int, default=6)
+    parser.add_argument('--enc_in', type=int, default=13)
+    parser.add_argument('--dec_in', type=int, default=13)
     parser.add_argument('--c_out', type=int, default=1)
     parser.add_argument('--d_model', type=int, default=32)
     parser.add_argument('--n_heads', type=int, default=8)
@@ -297,7 +297,7 @@ def parse_args():
     # Training config
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--itr', type=int, default=1)
-    parser.add_argument('--train_epochs', type=int, default=30)
+    parser.add_argument('--train_epochs', type=int, default=10)
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--eval_batch_size', type=int, default=8)
     parser.add_argument('--patience', type=int, default=10)
@@ -434,7 +434,6 @@ def train(args):
             train_total += outputs.shape[0]
             
             accelerator.backward(loss)
-            torch.nn.utils.clip_grad_norm_(trained_parameters, max_norm=1.0)
             model_optim.step()
             scheduler.step()
         
