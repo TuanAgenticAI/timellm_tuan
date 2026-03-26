@@ -556,13 +556,12 @@ def generate_prompts(ohlcv_path: str, output_path: str,
         if (i + 1) % 500 == 0 or i == total - 1:
             print(f"  [{i+1}/{total}] {end_date}  len={len(prompt)}")
 
-    out = {"by_date": by_date, "by_index": by_index}
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, indent=2)
+        json.dump(by_index, f, ensure_ascii=False, indent=2)
 
-    print(f"Saved {len(by_date)} prompts → {output_path}\n")
-    return out
+    print(f"Saved {len(by_index)} prompts → {output_path}\n")
+    return {"by_date": by_date, "by_index": by_index}
 
 
 def print_samples(prompts: dict, n: int = 6):

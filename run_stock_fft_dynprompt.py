@@ -184,6 +184,9 @@ def parse_args():
     parser.add_argument('--loss', type=str, default='MSE')
     parser.add_argument('--lradj', type=str, default='type1')
     parser.add_argument('--pct_start', type=float, default=0.2)
+    parser.add_argument('--entropy_weight', type=float, default=0.05,
+                        help='Weight for FFT scale entropy regularization (0=off). '
+                             'Prevents scale predictor collapse. Recommended: 0.01-0.1')
     parser.add_argument('--use_amp', action='store_true')
     parser.add_argument('--percent', type=int, default=100)
 
@@ -261,15 +264,23 @@ def train(args):
     train_steps = len(train_loader)
     early_stopping = EarlyStopping(accelerator=accelerator, patience=args.patience)
 
+    # Separate LR: FFT scale predictor gets 10x smaller LR to prevent collapse
+    fft_params   = [p for n, p in model.named_parameters()
+                    if p.requires_grad and 'freq_patch_block' in n]
+    other_params = [p for n, p in model.named_parameters()
+                    if p.requires_grad and 'freq_patch_block' not in n]
     trained_parameters = [p for p in model.parameters() if p.requires_grad]
-    model_optim = optim.Adam(trained_parameters, lr=args.learning_rate)
+    model_optim = optim.Adam([
+        {'params': fft_params,   'lr': args.learning_rate * 0.1},
+        {'params': other_params, 'lr': args.learning_rate},
+    ])
 
     scheduler = lr_scheduler.OneCycleLR(
         optimizer=model_optim,
         steps_per_epoch=train_steps,
         pct_start=args.pct_start,
         epochs=args.train_epochs,
-        max_lr=args.learning_rate
+        max_lr=[args.learning_rate * 0.1, args.learning_rate],
     )
 
     criterion = nn.MSELoss()
@@ -329,6 +340,16 @@ def train(args):
 
             loss = criterion(outputs, target)
             train_mse.append(loss.item())
+
+            # Entropy regularization: prevent FFT scale weights from collapsing
+            # Maximize entropy → keep weights distributed across all patch scales
+            unwrapped_m = accelerator.unwrap_model(model)
+            if (args.patching_mode == 'frequency_aware'
+                    and hasattr(unwrapped_m, '_last_scale_weights')
+                    and unwrapped_m._last_scale_weights is not None):
+                sw = unwrapped_m._last_scale_weights.float()
+                entropy = -torch.sum(sw * torch.log(sw + 1e-8), dim=-1).mean()
+                loss = loss - args.entropy_weight * entropy
 
             # Winrate tracking
             correct, total = compute_winrate(

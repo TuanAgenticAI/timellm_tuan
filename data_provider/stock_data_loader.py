@@ -160,20 +160,12 @@ class Dataset_Stock(Dataset):
         
         # Load prompt data if available
         self.prompts = None
-        self.prompts_by_date = None   # new macro-format: {"by_date": {...}, "by_index": {...}}
         if self.prompt_data_path:
             prompt_file = os.path.join(self.root_path, self.prompt_data_path)
             if os.path.exists(prompt_file):
                 with open(prompt_file, 'r') as f:
-                    raw = json.load(f)
-                # Detect new macro format (has "by_date" key) vs old flat index format
-                if isinstance(raw, dict) and "by_date" in raw:
-                    self.prompts_by_date = raw["by_date"]
-                    self.prompts = raw.get("by_index", {})
-                    print(f"Loaded {len(self.prompts_by_date)} macro prompts (date-keyed) from {prompt_file}")
-                else:
-                    self.prompts = raw
-                    print(f"Loaded {len(self.prompts)} prompts from {prompt_file}")
+                    self.prompts = json.load(f)
+                print(f"Loaded {len(self.prompts)} prompts from {prompt_file}")
     
     def __getitem__(self, index):
         feat_id = index // self.tot_len
@@ -197,32 +189,14 @@ class Dataset_Stock(Dataset):
         return self.scaler.inverse_transform(data)
     
     def get_prompt(self, index):
-        """Get the dynamic prompt for a specific sample index.
-
-        Lookup priority:
-          1. by_date key (macro prompts): uses actual date of last day in window
-             → correct for all splits (train/val/test)
-          2. by_index key (old format): uses s_begin relative to split start
-             → only correct for train split in old format
-          3. Statistical fallback
-        """
+        """Get the dynamic prompt for a specific sample index"""
         s_begin = index % self.tot_len
+        prompt_key = str(s_begin)
 
-        # Priority 1: date-based lookup (new macro format)
-        if self.prompts_by_date is not None:
-            end_idx = s_begin + self.seq_len - 1
-            if end_idx < len(self.dates):
-                date_key = str(self.dates[end_idx])[:10]   # 'YYYY-MM-DD'
-                if date_key in self.prompts_by_date:
-                    return self.prompts_by_date[date_key]
+        if self.prompts is not None and prompt_key in self.prompts:
+            return self.prompts[prompt_key]
 
-        # Priority 2: old index-based format
-        if self.prompts is not None:
-            prompt_key = str(s_begin)
-            if prompt_key in self.prompts:
-                return self.prompts[prompt_key]
-
-        # Priority 3: statistical fallback
+        # Generate statistical prompt as fallback
         return self._generate_statistical_prompt(s_begin)
     
     def _generate_statistical_prompt(self, s_begin):

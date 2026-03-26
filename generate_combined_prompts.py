@@ -450,9 +450,22 @@ def build_combined_prompt(end_date: date, ohlcv_window: pd.DataFrame,
 # ══════════════════════════════════════════════════════════════════════════════
 
 def generate_prompts(ohlcv_path: str, output_path: str,
-                     seq_len: int = 60, pred_len: int = 1) -> dict:
+                     seq_len: int = 60, pred_len: int = 1,
+                     align_path: str = None) -> dict:
+    """
+    align_path: nếu truyền vào (vd: vcb_stock_indicators_v2.csv), chỉ gen prompts
+                cho các dates có trong file đó → tránh index mismatch.
+    """
     df = pd.read_csv(ohlcv_path, parse_dates=["date"])
     df = df.sort_values("date").reset_index(drop=True)
+
+    # Align: chỉ giữ rows có date >= start date của indicators file
+    if align_path is not None:
+        df_align = pd.read_csv(align_path, parse_dates=["date"])
+        align_start = df_align["date"].min()
+        df = df[df["date"] >= align_start].reset_index(drop=True)
+        print(f"  Aligned to {os.path.basename(align_path)}: "
+              f"start={align_start.date()}, rows={len(df)}")
 
     total      = len(df) - seq_len - pred_len + 1
     dates_all  = df["date"].dt.date.tolist()
@@ -479,13 +492,12 @@ def generate_prompts(ohlcv_path: str, output_path: str,
         if (i + 1) % 500 == 0 or i == total - 1:
             print(f"  [{i+1}/{total}] {end_str}  len={len(prompt)}")
 
-    out = {"by_date": by_date, "by_index": by_index}
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, indent=2)
+        json.dump(by_index, f, ensure_ascii=False, indent=2)
 
-    print(f"  Saved {len(by_date)} prompts → {output_path}\n")
-    return out
+    print(f"  Saved {len(by_index)} prompts → {output_path}\n")
+    return {"by_date": by_date, "by_index": by_index}
 
 
 def print_samples(prompts: dict):
@@ -504,6 +516,9 @@ def main():
     )
     parser.add_argument("--ohlcv_path", type=str,
                         default="./dataset/dataset/stock/vcb_raw_ohlcv.csv")
+    parser.add_argument("--align_path", type=str,
+                        default="./dataset/dataset/stock/vcb_stock_indicators_v2.csv",
+                        help="Align prompt indices to this CSV start date (fix mismatch)")
     parser.add_argument("--output_dir", type=str,
                         default="./dataset/dataset/stock")
     parser.add_argument("--seq_len",  type=int, default=60)
@@ -521,6 +536,7 @@ def main():
             output_path=out_path,
             seq_len=args.seq_len,
             pred_len=pl,
+            align_path=args.align_path,
         )
         print_samples(prompts)
         print("─" * 72)
