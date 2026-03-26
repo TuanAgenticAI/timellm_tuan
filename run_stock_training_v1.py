@@ -22,7 +22,7 @@ from torch import optim
 from torch.optim import lr_scheduler
 from tqdm import tqdm
 
-from models import TimeLLM_Stock  # Use TimeLLM_Stock for dynamic prompts
+from models import TimeLLM
 from data_provider.data_factory import data_provider
 import time
 import random
@@ -249,8 +249,8 @@ def train_model_v1(args):
     vali_data, vali_loader = data_provider(args, 'val', with_prompt=args.use_dynamic_prompt)
     test_data, test_loader = data_provider(args, 'test', with_prompt=args.use_dynamic_prompt)
     
-    # Initialize model (TimeLLM_Stock for dynamic prompts)
-    model = TimeLLM_Stock.Model(args).float()
+    # Initialize model (TimeLLM supports dynamic prompts natively)
+    model = TimeLLM.Model(args).float()
     accelerator.print(f"Model: {args.model} with {args.enc_in} input features")
     
     path = os.path.join(args.checkpoints, setting + '-' + args.model_comment)
@@ -261,7 +261,7 @@ def train_model_v1(args):
     early_stopping = EarlyStopping(accelerator=accelerator, patience=args.patience)
     
     trained_parameters = [p for p in model.parameters() if p.requires_grad]
-    model_optim = optim.Adam(trained_parameters, lr=args.learning_rate, weight_decay=1e-5)
+    model_optim = optim.Adam(trained_parameters, lr=args.learning_rate)
     
     scheduler = lr_scheduler.OneCycleLR(
         optimizer=model_optim,
@@ -339,7 +339,6 @@ def train_model_v1(args):
             train_total += outputs.shape[0]
             
             accelerator.backward(loss)
-            torch.nn.utils.clip_grad_norm_(trained_parameters, max_norm=1.0)
             model_optim.step()
             scheduler.step()
         

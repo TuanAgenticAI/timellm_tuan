@@ -25,7 +25,7 @@ d_ff=128
 batch_size=16
 learning_rate=0.001
 dropout=0.1
-train_epochs=50
+train_epochs=10
 patience=10
 seq_len=60
 label_len=30
@@ -37,7 +37,7 @@ if [ "$prediction_type" == "short_term" ]; then
     model_id="VCB_v0_baseline_60_1"
 else
     pred_len=60
-    data_path="vcb_stock_indicators_v0.csv"
+    data_path="vcb_stock_indicators_v2.csv"
     model_id="VCB_v0_baseline_60_60"
     batch_size=8
     learning_rate=0.0005
@@ -50,7 +50,7 @@ c_out=1
 
 echo ""
 echo "Model Configuration:"
-echo "  - Input features: $enc_in (RSI, MACD, BB_Position, Volume_Norm, ROC)"
+echo "  - Input features: $enc_in"
 echo "  - Sequence length: $seq_len"
 echo "  - Prediction length: $pred_len"
 echo "  - Data file: $data_path"
