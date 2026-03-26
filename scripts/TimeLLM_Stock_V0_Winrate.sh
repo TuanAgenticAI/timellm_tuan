@@ -84,6 +84,7 @@ python run_stock_v0_winrate.py \
     --train_epochs $train_epochs \
     --patience $patience \
     --prediction_type $prediction_type \
+    --patching_mode single \
     --model_comment "V0-Baseline"
 
 echo ""

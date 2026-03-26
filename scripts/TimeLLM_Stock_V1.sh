@@ -94,6 +94,7 @@ python run_stock_training_v1.py \
     --prediction_type $prediction_type \
     --direction_weight $direction_weight \
     --use_dynamic_prompt \
+    --patching_mode single \
     --model_comment "V1-DynamicPrompt-MSE"
 
 echo ""

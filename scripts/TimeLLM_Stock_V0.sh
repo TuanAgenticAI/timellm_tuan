@@ -83,6 +83,7 @@ python run_stock_training_v0.py \
     --train_epochs $train_epochs \
     --patience $patience \
     --prediction_type $prediction_type \
+    --patching_mode single \
     --model_comment "V0-Baseline"
 
 echo ""

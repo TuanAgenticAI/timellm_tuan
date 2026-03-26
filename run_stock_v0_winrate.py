@@ -132,6 +132,8 @@ def parse_args():
     parser.add_argument('--output_attention', action='store_true')
     parser.add_argument('--patch_len', type=int, default=16)
     parser.add_argument('--stride', type=int, default=8)
+    parser.add_argument('--patching_mode', type=str, default='single',
+                        choices=['frequency_aware', 'multi_scale', 'single'])
     parser.add_argument('--prompt_domain', type=int, default=1)
     parser.add_argument('--llm_model', type=str, default='GPT2')
     parser.add_argument('--llm_dim', type=int, default=768)
