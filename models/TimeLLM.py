@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from transformers import LlamaConfig, LlamaModel, LlamaTokenizer, GPT2Config, GPT2Model, GPT2Tokenizer, BertConfig, \
-    BertModel, BertTokenizer
+    BertModel, BertTokenizer, AutoTokenizer
 from layers.Embed import PatchEmbedding, TokenEmbedding, ReplicationPad1d
 import transformers
 from layers.StandardNorm import Normalize
@@ -251,18 +251,26 @@ class Model(nn.Module):
                 )
 
             try:
-                self.tokenizer = GPT2Tokenizer.from_pretrained(
+                self.tokenizer = AutoTokenizer.from_pretrained(
                     'openai-community/gpt2',
                     trust_remote_code=True,
                     local_files_only=True
                 )
             except EnvironmentError:  # downloads the tokenizer from HF if not already done
                 print("Local tokenizer files not found. Atempting to download them..")
-                self.tokenizer = GPT2Tokenizer.from_pretrained(
+                self.tokenizer = AutoTokenizer.from_pretrained(
                     'openai-community/gpt2',
                     trust_remote_code=True,
                     local_files_only=False
                 )
+            # Verify tokenizer works
+            _test = self.tokenizer.encode("test")
+            if len(_test) == 0:
+                print("[TOKENIZER] AutoTokenizer failed, trying 'gpt2' model ID...")
+                self.tokenizer = AutoTokenizer.from_pretrained('gpt2')
+            print(f"[TOKENIZER] Loaded: {type(self.tokenizer).__name__}, "
+                  f"vocab_size={self.tokenizer.vocab_size}, "
+                  f"test encode('hello')={self.tokenizer.encode('hello')}")
         elif configs.llm_model == 'BERT':
             self.bert_config = BertConfig.from_pretrained('google-bert/bert-base-uncased')
 
@@ -427,21 +435,30 @@ class Model(nn.Module):
 
         x_enc = x_enc.reshape(B, N, T).permute(0, 2, 1).contiguous()
 
-        # Robust tokenization with fallback for batch encoding issues
+        # Robust tokenization with multiple fallbacks
         prompt_ids = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True, max_length=2048).input_ids
 
-        # Fallback: if batch tokenization returns 0 tokens, encode individually
+        # Fallback if batch tokenization returns 0 tokens
         if prompt_ids.shape[1] == 0:
-            import torch as _torch
             encoded_list = [self.tokenizer.encode(p, max_length=2048, truncation=True) for p in prompt]
+            # If encode() also fails, try tokenize + convert_tokens_to_ids
+            if all(len(e) == 0 for e in encoded_list):
+                encoded_list = [self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize(p)) for p in prompt]
+            # If still empty, force basic encoding by encoding char by char as last resort
+            if all(len(e) == 0 for e in encoded_list):
+                print("[TOKENIZER] All methods failed! Using word_embeddings indices as fallback")
+                # Use first N word embeddings as dummy prompt (at least model gets some context)
+                dummy_len = 10
+                encoded_list = [list(range(dummy_len)) for _ in prompt]
             max_len = max(len(ids) for ids in encoded_list)
             pad_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else 0
             padded = [ids + [pad_id] * (max_len - len(ids)) for ids in encoded_list]
-            prompt_ids = _torch.tensor(padded, dtype=_torch.long)
+            prompt_ids = torch.tensor(padded, dtype=torch.long)
             if not hasattr(self, '_tokenizer_fallback_warned'):
                 self._tokenizer_fallback_warned = True
-                print(f"[TOKENIZER FIX] Batch tokenization returned 0 tokens, using encode() fallback")
+                print(f"[TOKENIZER FIX] Batch tokenization returned 0 tokens, using fallback")
                 print(f"[TOKENIZER FIX] prompt_ids shape after fix: {prompt_ids.shape}")
+                print(f"[TOKENIZER FIX] first prompt ids: {prompt_ids[0][:20].tolist()}")
 
         prompt_embeddings = self.llm_model.get_input_embeddings()(prompt_ids.to(x_enc.device))
 

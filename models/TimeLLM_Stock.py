@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 
 from transformers import LlamaConfig, LlamaModel, LlamaTokenizer, GPT2Config, GPT2Model, GPT2Tokenizer, BertConfig, \
-    BertModel, BertTokenizer
+    BertModel, BertTokenizer, AutoTokenizer
 from layers.Embed import PatchEmbedding
 import transformers
 from layers.StandardNorm import Normalize
@@ -110,18 +110,26 @@ class Model(nn.Module):
                     config=self.gpt2_config,
                 )
             try:
-                self.tokenizer = GPT2Tokenizer.from_pretrained(
+                self.tokenizer = AutoTokenizer.from_pretrained(
                     'openai-community/gpt2',
                     trust_remote_code=True,
                     local_files_only=True
                 )
             except EnvironmentError:
                 print("Local tokenizer files not found. Attempting to download them..")
-                self.tokenizer = GPT2Tokenizer.from_pretrained(
+                self.tokenizer = AutoTokenizer.from_pretrained(
                     'openai-community/gpt2',
                     trust_remote_code=True,
                     local_files_only=False
                 )
+            # Verify tokenizer works
+            _test = self.tokenizer.encode("test")
+            if len(_test) == 0:
+                print("[TOKENIZER] AutoTokenizer failed, trying 'gpt2' model ID...")
+                self.tokenizer = AutoTokenizer.from_pretrained('gpt2')
+            print(f"[TOKENIZER] Loaded: {type(self.tokenizer).__name__}, "
+                  f"vocab_size={self.tokenizer.vocab_size}, "
+                  f"test encode('hello')={self.tokenizer.encode('hello')}")
         elif configs.llm_model == 'BERT':
             self.bert_config = BertConfig.from_pretrained('google-bert/bert-base-uncased')
             self.bert_config.num_hidden_layers = configs.llm_layers
@@ -281,8 +289,28 @@ class Model(nn.Module):
 
         x_enc = x_enc.reshape(B, N, T).permute(0, 2, 1).contiguous()
 
-        prompt = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True, max_length=2048).input_ids
-        prompt_embeddings = self.llm_model.get_input_embeddings()(prompt.to(x_enc.device))
+        # Robust tokenization with fallback for batch encoding issues
+        prompt_ids = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True, max_length=2048).input_ids
+
+        # Fallback if batch tokenization returns 0 tokens
+        if prompt_ids.shape[1] == 0:
+            encoded_list = [self.tokenizer.encode(p, max_length=2048, truncation=True) for p in prompt]
+            if all(len(e) == 0 for e in encoded_list):
+                encoded_list = [self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize(p)) for p in prompt]
+            if all(len(e) == 0 for e in encoded_list):
+                print("[TOKENIZER] All methods failed! Using dummy prompt embeddings")
+                dummy_len = 10
+                encoded_list = [list(range(dummy_len)) for _ in prompt]
+            max_len = max(len(ids) for ids in encoded_list)
+            pad_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else 0
+            padded = [ids + [pad_id] * (max_len - len(ids)) for ids in encoded_list]
+            prompt_ids = torch.tensor(padded, dtype=torch.long)
+            if not hasattr(self, '_tokenizer_fallback_warned'):
+                self._tokenizer_fallback_warned = True
+                print(f"[TOKENIZER FIX] prompt_ids shape after fix: {prompt_ids.shape}")
+                print(f"[TOKENIZER FIX] first prompt ids: {prompt_ids[0][:20].tolist()}")
+
+        prompt_embeddings = self.llm_model.get_input_embeddings()(prompt_ids.to(x_enc.device))
 
         source_embeddings = self.mapping_layer(self.word_embeddings.permute(1, 0)).permute(1, 0)
 

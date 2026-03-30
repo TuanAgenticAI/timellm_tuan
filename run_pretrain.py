@@ -6,7 +6,7 @@ from torch import nn, optim
 from torch.optim import lr_scheduler
 
 from data_provider_pretrain.data_factory import data_provider
-from models import Autoformer, DLinear, TimeLLM
+from models import Autoformer, DLinear, TimeLLM, LSTM, PatchTST
 
 import time
 import random
@@ -32,7 +32,7 @@ parser.add_argument('--is_training', type=int, required=True, default=1, help='s
 parser.add_argument('--model_id', type=str, required=True, default='test', help='model id')
 parser.add_argument('--model_comment', type=str, required=True, default='none', help='prefix when saving test results')
 parser.add_argument('--model', type=str, required=True, default='Autoformer',
-                    help='model name, options: [Autoformer, DLinear]')
+                    help='model name, options: [Autoformer, DLinear, LSTM, PatchTST]')
 parser.add_argument('--seed', type=int, default=2021, help='random seed')
 
 # data loader
@@ -131,6 +131,10 @@ for ii in range(args.itr):
         model = Autoformer.Model(args).float()
     elif args.model == 'DLinear':
         model = DLinear.Model(args).float()
+    elif args.model == 'LSTM':
+        model = LSTM.Model(args).float()
+    elif args.model == 'PatchTST':
+        model = PatchTST.Model(args).float()
     else:
         model = TimeLLM.Model(args).float()
 
